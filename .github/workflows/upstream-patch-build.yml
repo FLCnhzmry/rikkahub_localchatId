@@ -97,6 +97,7 @@ jobs:
         with:
           name: patch-build-logs-${{ steps.resolve.outputs.upstream_tag }}
           path: .release-logs
+          include-hidden-files: true
           if-no-files-found: warn
 
       - name: Upload APKs

@@ -25,6 +25,8 @@ $logPath = Join-Path $repoRoot $LogDir
 $buildLog = Join-Path $logPath "build.log"
 $summaryLog = Join-Path $logPath "build-summary.txt"
 
+New-Item -ItemType Directory -Force -Path $logPath | Out-Null
+
 if (-not (Test-Path $projectPath)) {
     throw "Project directory '$projectPath' does not exist."
 }
@@ -42,14 +44,15 @@ if (-not (Test-Path $gradlew)) {
 Push-Location $projectPath
 try {
     if (-not $IsWindows) {
-        chmod +x $gradlew
+        & chmod +x $gradlew
     }
 
-    $output = & $gradlew $GradleTask 2>&1
     Write-TextFile -Path $buildLog -Content @(
         "$gradlew $GradleTask",
         ""
-    ) + $output
+    )
+
+    & $gradlew $GradleTask 2>&1 | Tee-Object -FilePath $buildLog -Append | Out-Host
 
     if ($LASTEXITCODE -ne 0) {
         Write-TextFile -Path $summaryLog -Content @(
