@@ -68,12 +68,12 @@ Push-Location $workPath
 try {
     git init | Out-Null
     git remote add upstream $UpstreamRemote
-    git fetch --depth 1 upstream "refs/tags/$UpstreamTag:refs/tags/$UpstreamTag"
+    git fetch --depth 1 upstream "refs/tags/${UpstreamTag}:refs/tags/${UpstreamTag}"
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to fetch upstream tag '$UpstreamTag'."
     }
 
-    git checkout -b "release-$UpstreamTag" "tags/$UpstreamTag" | Out-Null
+    git checkout -b "release-$UpstreamTag" "tags/${UpstreamTag}" | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to check out upstream tag '$UpstreamTag'."
     }
@@ -133,7 +133,7 @@ if ($patchFiles.Count -eq 0) {
         Write-TextFile -Path $summaryLog -Content @(
             "Patch application failed for upstream tag '$UpstreamTag'.",
             "",
-            "Conflicted files:",
+            "Conflicted files:"
         ) + $conflictedFiles + @(
             "",
             "See apply.log, git-status.txt, conflicts.txt, and conflict-markers.txt for details."
