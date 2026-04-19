@@ -11,3 +11,6 @@ local.properties
 .cursor
 .history
 .kotlin
+.release-artifacts/
+.release-logs/
+.release-worktree/

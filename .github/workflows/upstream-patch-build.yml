@@ -1,0 +1,117 @@
+name: Upstream Patch Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: "Upstream release tag to patch. Leave empty to use the latest release."
+        required: false
+        type: string
+      publish_release:
+        description: "Publish a GitHub release on success."
+        required: false
+        default: true
+        type: boolean
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out fork repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Resolve upstream release tag
+        id: resolve
+        shell: pwsh
+        run: |
+          $requested = "${{ github.event.inputs.upstream_tag }}"
+          if ([string]::IsNullOrWhiteSpace($requested)) {
+            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/rikkahub/rikkahub/releases/latest"
+            $tag = $release.tag_name
+          } else {
+            $tag = $requested.Trim()
+          }
+
+          "upstream_tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "release_tag=patched-$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "artifact_name=rikkahub-patched-$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Prepare build files
+        shell: bash
+        run: |
+          echo "${{ secrets.KEY_BASE64 }}" | base64 -d > app/app.key
+          echo "${{ secrets.SIGNING_CONFIG }}" > local.properties
+          echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > app/google-services.json
+
+      - name: Apply local patches to upstream release
+        id: apply
+        shell: pwsh
+        run: |
+          ./scripts/apply-upstream-patches.ps1 `
+            -UpstreamTag "${{ steps.resolve.outputs.upstream_tag }}" `
+            -WorkDir ".release-worktree" `
+            -PatchDir "patches" `
+            -LogDir ".release-logs"
+
+      - name: Copy signing files into patched worktree
+        if: success()
+        shell: pwsh
+        run: |
+          Copy-Item -LiteralPath "local.properties" -Destination ".release-worktree/local.properties" -Force
+          Copy-Item -LiteralPath "app/google-services.json" -Destination ".release-worktree/app/google-services.json" -Force
+          Copy-Item -LiteralPath "app/app.key" -Destination ".release-worktree/app/app.key" -Force
+
+      - name: Build patched release
+        if: success()
+        shell: pwsh
+        run: |
+          ./scripts/build-release.ps1 `
+            -ProjectDir ".release-worktree" `
+            -LogDir ".release-logs" `
+            -GradleTask "assembleRelease"
+
+      - name: Collect APK artifacts
+        if: success()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ".release-artifacts" | Out-Null
+          Copy-Item -LiteralPath ".release-worktree/app/build/outputs/apk/release" -Destination ".release-artifacts/apk" -Recurse -Force
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: patch-build-logs-${{ steps.resolve.outputs.upstream_tag }}
+          path: .release-logs
+          if-no-files-found: warn
+
+      - name: Upload APKs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.resolve.outputs.artifact_name }}
+          path: .release-artifacts/apk/**/*.apk
+          if-no-files-found: error
+
+      - name: Publish patched release
+        if: success() && github.event.inputs.publish_release != 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.resolve.outputs.release_tag }}
+          name: Patched ${{ steps.resolve.outputs.upstream_tag }}
+          generate_release_notes: true
+          files: .release-artifacts/apk/**/*.apk
