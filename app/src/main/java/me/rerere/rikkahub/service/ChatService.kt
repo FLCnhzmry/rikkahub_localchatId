@@ -488,6 +488,7 @@ class ChatService(
                         it
                     }
                 },
+                clientConversationId = conversation.id.toString(),
                 assistant = settings.getCurrentAssistant(),
                 memories = if (settings.getCurrentAssistant().useGlobalMemory) {
                     memoryRepository.getGlobalMemories()

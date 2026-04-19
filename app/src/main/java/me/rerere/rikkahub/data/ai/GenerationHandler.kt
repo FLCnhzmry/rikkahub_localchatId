@@ -68,6 +68,7 @@ class GenerationHandler(
         settings: Settings,
         model: Model,
         messages: List<UIMessage>,
+        clientConversationId: String,
         inputTransformers: List<InputMessageTransformer> = emptyList(),
         outputTransformers: List<OutputMessageTransformer> = emptyList(),
         assistant: Assistant,
@@ -120,6 +121,7 @@ class GenerationHandler(
                     assistant = assistant,
                     settings = settings,
                     messages = messages,
+                    clientConversationId = clientConversationId,
                     onUpdateMessages = {
                         messages = it.transforms(
                             transformers = outputTransformers,
@@ -325,6 +327,7 @@ class GenerationHandler(
         assistant: Assistant,
         settings: Settings,
         messages: List<UIMessage>,
+        clientConversationId: String,
         onUpdateMessages: suspend (List<UIMessage>) -> Unit,
         transformers: List<MessageTransformer>,
         model: Model,
@@ -375,10 +378,13 @@ class GenerationHandler(
             maxTokens = assistant.maxTokens,
             tools = tools,
             reasoningLevel = assistant.reasoningLevel,
-            customHeaders = buildList {
-                addAll(assistant.customHeaders)
-                addAll(model.customHeaders)
-            },
+            customHeaders = buildClientConversationHeaders(
+                customHeaders = buildList {
+                    addAll(assistant.customHeaders)
+                    addAll(model.customHeaders)
+                },
+                conversationId = clientConversationId
+            ),
             customBody = buildList {
                 addAll(assistant.customBodies)
                 addAll(model.customBodies)
