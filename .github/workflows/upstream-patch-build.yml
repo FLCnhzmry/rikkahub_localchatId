@@ -75,6 +75,11 @@ jobs:
           Copy-Item -LiteralPath "app/google-services.json" -Destination ".release-worktree/app/google-services.json" -Force
           Copy-Item -LiteralPath "app/app.key" -Destination ".release-worktree/app/app.key" -Force
 
+          $localPropertiesPath = ".release-worktree/local.properties"
+          $content = Get-Content -LiteralPath $localPropertiesPath -Raw
+          $content = $content -replace '(?m)^storeFile\s*=\s*app[\\/]+app\.key\s*$', 'storeFile=app.key'
+          Set-Content -LiteralPath $localPropertiesPath -Value $content -Encoding utf8
+
       - name: Build patched release
         if: success()
         shell: pwsh
