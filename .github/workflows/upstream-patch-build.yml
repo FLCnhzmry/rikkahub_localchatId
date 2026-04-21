@@ -12,6 +12,11 @@ on:
         required: false
         default: true
         type: boolean
+      force_rebuild:
+        description: "Force rebuild even if the patched release tag already exists."
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "17 */6 * * *"
 
@@ -48,6 +53,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $forceRebuild = "${{ github.event.inputs.force_rebuild }}"
+          if ($forceRebuild -eq "true") {
+            Write-Host "force_rebuild=true, skipping existing release check."
+            "should_skip=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            exit 0
+          }
+
           $headers = @{
             Authorization = "Bearer $env:GITHUB_TOKEN"
             Accept = "application/vnd.github+json"
