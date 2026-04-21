@@ -1,6 +1,7 @@
 param(
     [string]$RequestedTag = "",
     [string]$SourceMode = "tag",
+    [string]$RequestedRef = "",
     [string]$UpstreamRemote = "https://github.com/rikkahub/rikkahub.git",
     [string]$GitHubOutputPath = ""
 )
@@ -73,8 +74,8 @@ function Get-LatestStableTag {
 }
 
 $normalizedSourceMode = $SourceMode.Trim().ToLowerInvariant()
-if ($normalizedSourceMode -notin @("tag", "master")) {
-    throw "Unsupported SourceMode '$SourceMode'. Expected 'tag' or 'master'."
+if ($normalizedSourceMode -notin @("tag", "master", "ref")) {
+    throw "Unsupported SourceMode '$SourceMode'. Expected 'tag', 'master', or 'ref'."
 }
 
 $upstreamTag = if ([string]::IsNullOrWhiteSpace($RequestedTag)) {
@@ -84,15 +85,25 @@ $upstreamTag = if ([string]::IsNullOrWhiteSpace($RequestedTag)) {
 }
 
 $normalizedVersion = Get-NormalizedVersion -Tag $upstreamTag
-$checkoutRef = if ($normalizedSourceMode -eq "master") {
+$resolvedTarget = ""
+$checkoutRef = ""
+
+if ($normalizedSourceMode -eq "master") {
     "refs/heads/master"
-} else {
+    $resolvedTarget = "master"
+} elseif ($normalizedSourceMode -eq "tag") {
     "refs/tags/$upstreamTag"
-}
-$resolvedTarget = if ($normalizedSourceMode -eq "master") {
-    "master"
+    $resolvedTarget = $upstreamTag
 } else {
-    $upstreamTag
+    if ([string]::IsNullOrWhiteSpace($RequestedRef)) {
+        throw "RequestedRef is required when SourceMode is 'ref'."
+    }
+    $checkoutRef = $RequestedRef.Trim()
+    $resolvedTarget = $checkoutRef
+}
+
+if ([string]::IsNullOrWhiteSpace($checkoutRef)) {
+    throw "Failed to resolve an upstream ref for SourceMode '$SourceMode'."
 }
 
 Write-OutputValue -Name "source_mode" -Value $normalizedSourceMode

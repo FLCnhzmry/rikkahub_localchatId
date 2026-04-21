@@ -25,6 +25,11 @@ on:
         options:
           - tag
           - master
+          - ref
+      upstream_ref:
+        description: "Custom upstream branch, tag ref, or commit SHA to build when source_mode=ref."
+        required: false
+        type: string
   schedule:
     - cron: "17 */6 * * *"
 
@@ -54,6 +59,7 @@ jobs:
           ./scripts/resolve-upstream-tag.ps1 `
             -RequestedTag "${{ github.event.inputs.upstream_tag }}" `
             -SourceMode "${{ github.event.inputs.source_mode || 'tag' }}" `
+            -RequestedRef "${{ github.event.inputs.upstream_ref }}" `
             -GitHubOutputPath $env:GITHUB_OUTPUT
 
       - name: Check for existing patched release
