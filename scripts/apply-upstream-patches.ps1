@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$UpstreamTag,
+    [string]$UpstreamRef,
+    [string]$SourceLabel = "",
     [string]$WorkDir = ".release-worktree",
     [string]$PatchDir = "patches",
     [string]$LogDir = ".release-logs",
@@ -52,6 +53,7 @@ $statusLog = Join-Path $logPath "git-status.txt"
 $conflictLog = Join-Path $logPath "conflicts.txt"
 $markerLog = Join-Path $logPath "conflict-markers.txt"
 $metaFile = Join-Path $logPath "metadata.json"
+$displaySource = if ([string]::IsNullOrWhiteSpace($SourceLabel)) { $UpstreamRef } else { $SourceLabel }
 
 New-Item -ItemType Directory -Force -Path $logPath | Out-Null
 
@@ -68,14 +70,15 @@ Push-Location $workPath
 try {
     git init | Out-Null
     git remote add upstream $UpstreamRemote
-    git fetch --depth 1 upstream "refs/tags/${UpstreamTag}:refs/tags/${UpstreamTag}"
+    git fetch --depth 1 upstream $UpstreamRef
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to fetch upstream tag '$UpstreamTag'."
+        throw "Failed to fetch upstream ref '$displaySource'."
     }
 
-    git checkout -b "release-$UpstreamTag" "tags/${UpstreamTag}" | Out-Null
+    $branchName = ($displaySource -replace '[^0-9A-Za-z._-]', '-')
+    git checkout -b "release-$branchName" FETCH_HEAD | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to check out upstream tag '$UpstreamTag'."
+        throw "Failed to check out upstream ref '$displaySource'."
     }
 } finally {
     Pop-Location
@@ -87,7 +90,8 @@ if (Test-Path $patchPath) {
 }
 
 $metadata = [ordered]@{
-    upstream_tag = $UpstreamTag
+    upstream_ref = $UpstreamRef
+    source = $displaySource
     worktree = $workPath
     patch_count = $patchFiles.Count
     status = "success"
@@ -96,7 +100,7 @@ $metadata = [ordered]@{
 if ($patchFiles.Count -eq 0) {
     Write-TextFile -Path $summaryLog -Content @(
         "No patch files were found in '$patchPath'.",
-        "The worktree was prepared at upstream tag '$UpstreamTag' without applying any local patches."
+        "The worktree was prepared at upstream source '$displaySource' without applying any local patches."
     )
 } else {
     $patchArgs = @(
@@ -131,7 +135,7 @@ if ($patchFiles.Count -eq 0) {
         Write-TextFile -Path $markerLog -Content $markerOutput
 
         Write-TextFile -Path $summaryLog -Content @(
-            "Patch application failed for upstream tag '$UpstreamTag'.",
+            "Patch application failed for upstream source '$displaySource'.",
             "",
             "Conflicted files:"
         ) + $conflictedFiles + @(
@@ -158,7 +162,7 @@ if ($patchFiles.Count -eq 0) {
         }
     } else {
         Write-TextFile -Path $summaryLog -Content @(
-            "Applied $($patchFiles.Count) patch(es) successfully to upstream tag '$UpstreamTag'.",
+            "Applied $($patchFiles.Count) patch(es) successfully to upstream source '$displaySource'.",
             "Prepared worktree: $workPath"
         )
     }

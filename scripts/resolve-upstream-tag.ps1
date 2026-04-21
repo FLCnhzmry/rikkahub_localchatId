@@ -1,5 +1,6 @@
 param(
     [string]$RequestedTag = "",
+    [string]$SourceMode = "tag",
     [string]$UpstreamRemote = "https://github.com/rikkahub/rikkahub.git",
     [string]$GitHubOutputPath = ""
 )
@@ -71,6 +72,11 @@ function Get-LatestStableTag {
     return $latest.Tag
 }
 
+$normalizedSourceMode = $SourceMode.Trim().ToLowerInvariant()
+if ($normalizedSourceMode -notin @("tag", "master")) {
+    throw "Unsupported SourceMode '$SourceMode'. Expected 'tag' or 'master'."
+}
+
 $upstreamTag = if ([string]::IsNullOrWhiteSpace($RequestedTag)) {
     Get-LatestStableTag -Remote $UpstreamRemote
 } else {
@@ -78,8 +84,19 @@ $upstreamTag = if ([string]::IsNullOrWhiteSpace($RequestedTag)) {
 }
 
 $normalizedVersion = Get-NormalizedVersion -Tag $upstreamTag
+$checkoutRef = if ($normalizedSourceMode -eq "master") {
+    "refs/heads/master"
+} else {
+    "refs/tags/$upstreamTag"
+}
+$resolvedTarget = if ($normalizedSourceMode -eq "master") {
+    "master"
+} else {
+    $upstreamTag
+}
 
+Write-OutputValue -Name "source_mode" -Value $normalizedSourceMode
 Write-OutputValue -Name "upstream_tag" -Value $upstreamTag
 Write-OutputValue -Name "normalized_upstream_version" -Value $normalizedVersion
-Write-OutputValue -Name "release_tag" -Value "patched-$normalizedVersion"
-Write-OutputValue -Name "artifact_name" -Value "rikkahub-patched-$normalizedVersion"
+Write-OutputValue -Name "checkout_ref" -Value $checkoutRef
+Write-OutputValue -Name "resolved_target" -Value $resolvedTarget
