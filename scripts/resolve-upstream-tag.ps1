@@ -89,10 +89,10 @@ $resolvedTarget = ""
 $checkoutRef = ""
 
 if ($normalizedSourceMode -eq "master") {
-    "refs/heads/master"
+    $checkoutRef = "refs/heads/master"
     $resolvedTarget = "master"
 } elseif ($normalizedSourceMode -eq "tag") {
-    "refs/tags/$upstreamTag"
+    $checkoutRef = "refs/tags/$upstreamTag"
     $resolvedTarget = $upstreamTag
 } else {
     if ([string]::IsNullOrWhiteSpace($RequestedRef)) {
