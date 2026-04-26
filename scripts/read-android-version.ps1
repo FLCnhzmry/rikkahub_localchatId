@@ -21,6 +21,49 @@ function Write-OutputValue {
     "$Name=$Value" | Out-File -FilePath $GitHubOutputPath -Append -Encoding utf8
 }
 
+function Parse-SemanticVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Version
+    )
+
+    $trimmed = $Version.Trim()
+    $match = [regex]::Match($trimmed, '^[vV]?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$')
+    if (-not $match.Success) {
+        throw "Version '$Version' is not a supported semantic version."
+    }
+
+    return [pscustomobject]@{
+        Major = [int]$match.Groups[1].Value
+        Minor = [int]$match.Groups[2].Value
+        Patch = [int]$match.Groups[3].Value
+    }
+}
+
+function Compare-SemanticVersions {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LeftVersion,
+        [Parameter(Mandatory = $true)]
+        [string]$RightVersion
+    )
+
+    $left = Parse-SemanticVersion -Version $LeftVersion
+    $right = Parse-SemanticVersion -Version $RightVersion
+
+    foreach ($property in @("Major", "Minor", "Patch")) {
+        if ($left.$property -lt $right.$property) {
+            return -1
+        }
+
+        if ($left.$property -gt $right.$property) {
+            return 1
+        }
+    }
+
+    return 0
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $projectPath = Join-Path $repoRoot $ProjectDir
 $gradlePath = Join-Path $projectPath $GradleFile
@@ -44,8 +87,15 @@ if (-not $versionCodeMatch.Success) {
 $versionName = $versionNameMatch.Groups[1].Value
 $versionCode = $versionCodeMatch.Groups[1].Value
 
-if (-not [string]::IsNullOrWhiteSpace($ExpectedVersionName) -and $versionName -ne $ExpectedVersionName) {
-    throw "Patched worktree versionName '$versionName' does not match expected upstream version '$ExpectedVersionName'."
+if (-not [string]::IsNullOrWhiteSpace($ExpectedVersionName)) {
+    $comparison = Compare-SemanticVersions -LeftVersion $versionName -RightVersion $ExpectedVersionName
+    if ($comparison -lt 0) {
+        throw "Patched worktree versionName '$versionName' is older than expected upstream version '$ExpectedVersionName'."
+    }
+
+    if ($comparison -gt 0) {
+        Write-Host "Patched worktree versionName '$versionName' is newer than expected upstream version '$ExpectedVersionName'. Continuing with the resolved app version release check."
+    }
 }
 
 Write-OutputValue -Name "app_version_name" -Value $versionName

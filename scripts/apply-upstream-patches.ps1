@@ -80,6 +80,21 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to check out upstream ref '$displaySource'."
     }
+
+    $upstreamCommit = (& git -C $workPath rev-parse HEAD 2>&1 | Select-Object -First 1).ToString().Trim()
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($upstreamCommit)) {
+        throw "Failed to resolve upstream commit SHA for '$displaySource'."
+    }
+
+    $upstreamCommitDate = (& git -C $workPath log -1 --format=%cI 2>&1 | Select-Object -First 1).ToString().Trim()
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($upstreamCommitDate)) {
+        throw "Failed to resolve upstream commit date for '$displaySource'."
+    }
+
+    $upstreamCommitSubject = (& git -C $workPath log -1 --format=%s 2>&1 | Select-Object -First 1).ToString().Trim()
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to resolve upstream commit subject for '$displaySource'."
+    }
 } finally {
     Pop-Location
 }
@@ -92,6 +107,9 @@ if (Test-Path $patchPath) {
 $metadata = [ordered]@{
     upstream_ref = $UpstreamRef
     source = $displaySource
+    upstream_commit = $upstreamCommit
+    upstream_commit_date = $upstreamCommitDate
+    upstream_commit_subject = $upstreamCommitSubject
     worktree = $workPath
     patch_count = $patchFiles.Count
     status = "success"
