@@ -90,10 +90,8 @@ $versionCode = $versionCodeMatch.Groups[1].Value
 if (-not [string]::IsNullOrWhiteSpace($ExpectedVersionName)) {
     $comparison = Compare-SemanticVersions -LeftVersion $versionName -RightVersion $ExpectedVersionName
     if ($comparison -lt 0) {
-        throw "Patched worktree versionName '$versionName' is older than expected upstream version '$ExpectedVersionName'."
-    }
-
-    if ($comparison -gt 0) {
+        Write-Host "Patched worktree versionName '$versionName' is older than expected upstream version '$ExpectedVersionName'. Continuing with the resolved app version release check because upstream tags may lead the in-source versionName."
+    } elseif ($comparison -gt 0) {
         Write-Host "Patched worktree versionName '$versionName' is newer than expected upstream version '$ExpectedVersionName'. Continuing with the resolved app version release check."
     }
 }
