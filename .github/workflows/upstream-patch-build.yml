@@ -258,7 +258,7 @@ jobs:
         if: success() && steps.release_check_after_version.outputs.should_skip != 'true'
         uses: pnpm/action-setup@v4
         with:
-          version: "9"
+          version: "10"
 
       - name: Install web-ui dependencies in patched worktree
         if: success() && steps.release_check_after_version.outputs.should_skip != 'true'
