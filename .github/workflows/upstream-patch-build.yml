@@ -52,10 +52,10 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: "22"
 
       - name: Resolve upstream release tag
         id: resolve
@@ -254,19 +254,25 @@ jobs:
           $content = $content -replace '(?m)^storeFile\s*=\s*app[\\/]+app\.key\s*$', 'storeFile=app.key'
           Set-Content -LiteralPath $localPropertiesPath -Value $content -Encoding utf8
 
+      - name: Set up pnpm
+        if: success() && steps.release_check_after_version.outputs.should_skip != 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9"
+
       - name: Install web-ui dependencies in patched worktree
         if: success() && steps.release_check_after_version.outputs.should_skip != 'true'
         shell: pwsh
         run: |
           $webUiDir = ".release-worktree/web-ui"
           if (-not (Test-Path "$webUiDir/package.json")) {
-            Write-Host "No web-ui package.json found in patched worktree; skipping Bun install."
+            Write-Host "No web-ui package.json found in patched worktree; skipping pnpm install."
             exit 0
           }
 
           Push-Location $webUiDir
           try {
-            bun install --frozen-lockfile
+            pnpm install --frozen-lockfile
           } finally {
             Pop-Location
           }
