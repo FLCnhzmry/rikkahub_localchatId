@@ -1,6 +1,8 @@
 name: Upstream Patch Build
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
     inputs:
       upstream_tag:
